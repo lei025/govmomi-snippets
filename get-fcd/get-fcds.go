@@ -283,9 +283,14 @@ func main() {
 			fmt.Fprintf(tw, "List of FCDs on datastore: %s\n", newds.Name)
 			fmt.Fprintf(tw, "\n")
 			objids, err = m.List(ctx, newds)
+			if err != nil {
+				fmt.Println("err: ", err)
+			}
 			//
 			// - With the list of FCD Ids, we can get further information about the FCD retrievec in VStorageObject
-			//
+			// - 有了FCD Ids的列表，我们可以在VStorageObject中获得关于FCD检索c的进一步信息
+			fmt.Println("objids: ", objids)
+
 			for _, id := range objids {
 				fmt.Fprintf(tw, "\tFound FCD Id: %s\n", id.Id)
 				idinfo, err = m.Retrieve(ctx, newds, id.Id)

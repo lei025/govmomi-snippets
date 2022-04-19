@@ -2,7 +2,7 @@
 //
 // Description:		Go code to connect to vSphere via environment
 //			variables and retrieve VM information (unformatted output)
-//
+// 		通过环境变量连接到vSphere的Go代码并获取虚拟机信息（未格式化的输出）。
 // 			Login moved to function in this example
 //
 // Author:		Cormac J. Hogan (VMware)
@@ -33,7 +33,7 @@ func vlogin(ctx context.Context, vc, user, pwd string) (*vim25.Client, error) {
 	// Create a vSphere/vCenter client
 	//
 	//    The govmomi client requires a URL object, u, not just a string representation of the vCenter URL.
-	//
+	// govmomi客户端需要一个URL对象，u，而不仅仅是vCenter URL的一个字符串表示。
 
 	u, err := soap.ParseURL(vc)
 
@@ -53,6 +53,7 @@ func vlogin(ctx context.Context, vc, user, pwd string) (*vim25.Client, error) {
 	//
 
 	// Share session cache
+	// 分享会话缓存
 	s := &cache.Session{
 		URL:      u,
 		Insecure: true,
@@ -90,9 +91,11 @@ func main() {
 
 	//
 	// Imagine that there were multiple operations taking place such as processing some data, logging into vCenter, etc.
-	// If one of the operations failed, the context would be used to share the fact that all of the other operations 
+	// If one of the operations failed, the context would be used to share the fact that all of the other operations
 	// sharing that context needs cancelling.
-	//
+	// 想象一下，有多个操作正在进行，如处理一些数据、登录到vCenter等。
+	// 如果其中一个操作失败了，该上下文将被用来分享所有其他的操作
+	// 共享该上下文需要取消。
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -105,7 +108,7 @@ func main() {
 
 	//
 	// Create a view manager - a mechanism that supports selection of objects on the server and subsequently, access to those objects.
-	//
+	// 创建一个视图管理器--一个支持选择服务器上的对象并随后访问这些对象的机制。
 	// Ref: https://vdc-download.vmware.com/vmwb-repository/dcr-public/b50dcbbf-051d-4204-a3e7-e1b618c1e384/538cf2ec-b34f-4bae-a332-3820ef9e7773/vim.view.ViewManager.html
 	//
 
@@ -113,7 +116,7 @@ func main() {
 
 	//
 	// Create a container view (a means of monitoring the contents of a single container) of VM objects
-	//
+	//  创建虚拟机对象的容器视图（监视单个容器内容的一种手段）。
 	// Ref: https://vdc-download.vmware.com/vmwb-repository/dcr-public/b50dcbbf-051d-4204-a3e7-e1b618c1e384/538cf2ec-b34f-4bae-a332-3820ef9e7773/vim.view.ContainerView.html
 	//
 
@@ -127,7 +130,7 @@ func main() {
 
 	//
 	// Retrieve summary property for all machines
-	//
+	// 检索所有机器的摘要属性
 
 	var vms []mo.VirtualMachine
 	err = v.Retrieve(ctx, []string{"VirtualMachine"}, []string{"summary"}, &vms)
@@ -139,7 +142,7 @@ func main() {
 
 	//
 	// Print summary per vm
-	//
+	// 打印每个虚拟机的摘要
 	// -- https://golang.org/pkg/text/tabwriter/#NewWriter
 	//
 
@@ -164,5 +167,14 @@ func main() {
 
 	fmt.Fprintf(tw, "\n")
 
+	fmt.Println(len(vms), "-------------------------------- end")
+	fmt.Println(vms[0].Summary)
+
 	_ = tw.Flush()
 }
+
+
+// 应该在最后一次调用Write之后再调用Flush，以保证
+//  写入器中缓冲的任何数据都被写入输出。任何
+//  在最后的不完整的转义序列被认为是
+//  为格式化目的而完成。

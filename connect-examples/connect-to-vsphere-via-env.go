@@ -32,6 +32,26 @@
 // Use govc commands as a reference, and "godoc" for examples that can be run against `vcsim`:
 // See: https://godoc.org/github.com/vmware/govmomi/view#pkg-examples
 //
+
+// ----------------------------------------
+//
+// govmomi.Client扩展了vim25.Client
+// govmomi.Client除了自动登录外，不做任何额外的事情。
+//
+// 在早期（2015年），govmomi.Client做得更多，但我们把大部分移到vim25.Client。
+// govmomi.Client保留了兼容性和小便利。
+//
+// 直接使用soap.Client和vim25.Client允许应用程序使用其他认证方法。
+// 会话缓存、会话保持、重试、精细的TLS配置等。
+//
+// 对于清单来说，ContainerView是一个vSphere的原件。
+// 与Finder相比，ContainerView倾向于减少对vCenter的往返调用。
+// 但是，它可能会产生更多的响应数据。
+//
+// Finder是为govc编写的，我们将vSphere库存视为一个虚拟文件系统。
+// 输入到 "govc "的清单路径与 "ls "命令的行为类似，支持相对路径。
+// 通配符匹配等。
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 package main
