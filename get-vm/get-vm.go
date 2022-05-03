@@ -28,30 +28,23 @@ import (
 )
 
 func vlogin(ctx context.Context, vc, user, pwd string) (*vim25.Client, error) {
-
 	//
 	// Create a vSphere/vCenter client
 	//
 	//    The govmomi client requires a URL object, u, not just a string representation of the vCenter URL.
 	// govmomi客户端需要一个URL对象，u，而不仅仅是vCenter URL的一个字符串表示。
-
 	u, err := soap.ParseURL(vc)
-
 	if u == nil {
 		fmt.Printf("could not parse URL (environment variables set?)")
 	}
-
 	if err != nil {
 		fmt.Printf("URL parsing not successful, error %v", err)
 		return nil, err
 	}
-
 	u.User = url.UserPassword(user, pwd)
-
 	//
 	// Ripped from https://github.com/vmware/govmomi/blob/master/examples/examples.go
 	//
-
 	// Share session cache
 	// 分享会话缓存
 	s := &cache.Session{
@@ -125,7 +118,6 @@ func main() {
 		fmt.Printf("Unable to create Virtual Machine Container View: error %s", err)
 		return
 	}
-
 	defer v.Destroy(ctx)
 
 	//
@@ -169,10 +161,10 @@ func main() {
 
 	fmt.Println(len(vms), "-------------------------------- end")
 	fmt.Println(vms[0].Summary)
+	fmt.Println(vms[0].Config.Name)
 
 	_ = tw.Flush()
 }
-
 
 // 应该在最后一次调用Write之后再调用Flush，以保证
 //  写入器中缓冲的任何数据都被写入输出。任何
