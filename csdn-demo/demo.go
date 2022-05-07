@@ -112,9 +112,9 @@ func main() {
 		fmt.Println(host.Name)
 	}
 
-	perfManager := performance.NewManager(client)
-	counters, _ := perfManager.CounterInfoByName(ctx)
-	fmt.Println("counters: ", counters)
+	// perfManager := performance.NewManager(client)
+	// counters, _ := perfManager.CounterInfoByName(ctx)
+	// fmt.Println("counters: ", counters)
 	// spec := types.PerfQuerySpec{
 	// 	MaxSample:  1,
 	// 	MetricId:   []types.PerfMetricId{{Instance: ""}},

@@ -241,16 +241,40 @@ func (vw *VmWare) GetAllHost() (hostList []*HostSummary, err error) {
 		                }
 	*/
 	for _, hs := range hss {
-		fmt.Println("hostname: ", hs.Summary.Config.Name,
+		fmt.Println("hostInfo: ",
+			"hostname: ", hs.Summary.Config.Name,
 			" uptime: ", hs.Summary.QuickStats.Uptime,
-			" uuid:", "dc_name_"+hs.Name,
+			" uuid:", "dc_name_", hs.Name,
 			" vendor: ", hs.Summary.Hardware.Vendor,
 			"parentuuid", "vcenter_ip",
 			"datacenter: ", "dc_name",
 			"status: ", hs.Summary.Runtime.PowerState)
+		fmt.Println("--------------------------------")
+		fmt.Println("cpuInfo: ",
+			"coreNumber: ", int64(hs.Summary.Hardware.NumCpuCores),
+			"threadNumber: ", int64(hs.Summary.Hardware.NumCpuThreads),
+			"modeName: ", hs.Summary.Hardware.CpuModel,
+			"usedPercent",
+
+		// ""
+
+		)
+
+		memInfo := map[string]interface{}{
+			"total": hs.Summary.Hardware.MemorySize,
+			"used":  int64(hs.Summary.QuickStats.OverallMemoryUsage * 1024 * 1024),
+			"free":  hs.Summary.Hardware.MemorySize - int64(hs.Summary.QuickStats.OverallMemoryUsage)*1024*1024,
+		}
+		fmt.Println("memInfo: ", memInfo)
+
 		totalCPU := int64(hs.Summary.Hardware.CpuMhz) * int64(hs.Summary.Hardware.NumCpuCores)
 		freeCPU := int64(totalCPU) - int64(hs.Summary.QuickStats.OverallCpuUsage)
 		freeMemory := int64(hs.Summary.Hardware.MemorySize) - (int64(hs.Summary.QuickStats.OverallMemoryUsage) * 1024 * 1024)
+		fmt.Println("freeMemory: ", freeMemory)
+		fmt.Println(int64(hs.Summary.Hardware.MemorySize))
+		fmt.Println((int64(hs.Summary.QuickStats.OverallMemoryUsage) * 1024 * 1024))
+		fmt.Println(hs.Datastore)
+
 		hostList = append(hostList, &HostSummary{
 			Host: Host{
 				Type:  hs.Summary.Host.Type,
@@ -416,7 +440,15 @@ func (vw *VmWare) GetAllDatacenter() (dataCenterList []DataCenter, err error) {
 				Value: dc.DatastoreFolder.Value,
 			},
 		})
+		fmt.Println("dc_name: ", dc.Name)
 	}
+
+	// {{Datacenter datacenter-7}
+	// Datacenter
+	// {Folder group-v8}
+	// {Folder group-h9}
+	// {Folder group-s10}}
+
 	fmt.Println(dataCenterList)
 	return
 }
@@ -995,4 +1027,26 @@ func main() {
 	for _, vm := range hostList {
 		fmt.Println(vm)
 	}
+
+	fmt.Println("-------------------------------- datastore ")
+	storeList, _ := vm.GetAllDatastore()
+	for _, store := range storeList {
+		fmt.Println(store)
+	}
+
+	fmt.Println("GetAllDatacenter --------------------------------")
+	dataceterList, _ := vm.GetAllDatacenter()
+	fmt.Println(len(dataceterList))
+	for _, dataceter := range dataceterList {
+		fmt.Println(dataceter)
+	}
+
+	fmt.Println("GetAllFolder --------------------------------")
+	folderList, _ := vm.GetFolder()
+	fmt.Println(len(folderList))
+	for _, folder := range folderList {
+		fmt.Println(folder)
+		fmt.Println("----")
+	}
+
 }
