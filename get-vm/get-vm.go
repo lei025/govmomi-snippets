@@ -125,7 +125,7 @@ func main() {
 	// 检索所有机器的摘要属性
 
 	var vms []mo.VirtualMachine
-	err = v.Retrieve(ctx, []string{"VirtualMachine"}, []string{"summary"}, &vms)
+	err = v.Retrieve(ctx, []string{"VirtualMachine"}, []string{}, &vms)
 
 	if err != nil {
 		fmt.Printf("Unable to retrieve VM information: error %s", err)

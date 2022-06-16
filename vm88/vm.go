@@ -10,11 +10,13 @@ import (
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/performance"
 	"github.com/vmware/govmomi/units"
 	"github.com/vmware/govmomi/vapi/library"
 	"github.com/vmware/govmomi/vapi/rest"
 	"github.com/vmware/govmomi/vapi/vcenter"
 	"github.com/vmware/govmomi/view"
+	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 )
@@ -61,7 +63,7 @@ type HostSummary struct {
 	UsedMemory  int64  `json:"UsedMemory"`
 	TotalMemory int64  `json:"TotalMemory"`
 	FreeMemory  int64  `json:"FreeMemory"`
-	HostSelf    types.ManagedObjectReference
+	Self        types.ManagedObjectReference
 }
 
 type Host struct {
@@ -176,6 +178,37 @@ func (vw *VmWare) getBase(tp string) (v *view.ContainerView, error error) {
 	return v, nil
 }
 
+// var Perf_dict map[string]interface{}
+
+// Perf_dict = make(map[string]string, 10)
+
+func (vw *VmWare) GetPerfDict() (map[string]int32, error) {
+	Perf_dict := make(map[string]int32)
+	perfManager := performance.NewManager(vw.client.Client)
+	counters, _ := perfManager.CounterInfo(vw.ctx)
+	for _, counter := range counters {
+		counter_full := fmt.Sprintf("%s.%s.%s", counter.GroupInfo.GetElementDescription().Key,
+			counter.NameInfo.GetElementDescription().Key,
+			counter.RollupType)
+		Perf_dict[counter_full] = counter.Key
+	}
+	return Perf_dict, nil
+}
+
+func (vw *VmWare) GetAllVmClient1() (vmList []mo.VirtualMachine, err error) {
+	v, err := vw.getBase("VirtualMachine")
+	if err != nil {
+		return nil, err
+	}
+	defer v.Destroy(vw.ctx)
+	// var vms []mo.VirtualMachine
+	err = v.Retrieve(vw.ctx, []string{"VirtualMachine"}, []string{"summary"}, &vmList)
+	if err != nil {
+		return nil, err
+	}
+	return vmList, nil
+}
+
 func (vw *VmWare) GetAllVmClient() (vmList []VirtualMachines, templateList []TemplateInfo, err error) {
 	v, err := vw.getBase("VirtualMachine")
 	if err != nil {
@@ -214,7 +247,13 @@ func (vw *VmWare) GetAllVmClient() (vmList []VirtualMachines, templateList []Tem
 			})
 		}
 	}
-	fmt.Println(vmList)
+
+	// var interval = flag.Int("i", 20, "Interval ID")
+	// for _, vm := range vmList {
+	// 	vmmm, _ := queryInfo(vw.ctx, vw.client.Client, interval, []string{"net.received.average"}, 148, types.ManagedObjectReference(vm.Self))
+	// 	fmt.Println("vmmm", vmmm)
+	// }
+
 	return vmList, templateList, nil
 }
 
@@ -243,9 +282,9 @@ func (vw *VmWare) GetAllHost() (hostList []*HostSummary, err error) {
 	for _, hs := range hss {
 		fmt.Println("hostInfo: ",
 			"hostname: ", hs.Summary.Config.Name,
-			" uptime: ", hs.Summary.QuickStats.Uptime,
-			" uuid:", "dc_name_", hs.Name,
-			" vendor: ", hs.Summary.Hardware.Vendor,
+			"uptime: ", hs.Summary.QuickStats.Uptime,
+			"uuid:", "dc_name_", hs.Name,
+			"vendor: ", hs.Summary.Hardware.Vendor,
 			"parentuuid", "vcenter_ip",
 			"datacenter: ", "dc_name",
 			"status: ", hs.Summary.Runtime.PowerState)
@@ -263,7 +302,7 @@ func (vw *VmWare) GetAllHost() (hostList []*HostSummary, err error) {
 		memInfo := map[string]interface{}{
 			"total": hs.Summary.Hardware.MemorySize,
 			"used":  int64(hs.Summary.QuickStats.OverallMemoryUsage * 1024 * 1024),
-			"free":  hs.Summary.Hardware.MemorySize - int64(hs.Summary.QuickStats.OverallMemoryUsage)*1024*1024,
+			"free":  hs.Summary.Hardware.MemorySize - int64(hs.Summary.QuickStats.OverallMemoryUsage*1024*1024),
 		}
 		fmt.Println("memInfo: ", memInfo)
 
@@ -287,9 +326,17 @@ func (vw *VmWare) GetAllHost() (hostList []*HostSummary, err error) {
 			UsedMemory:  int64((units.ByteSize(hs.Summary.QuickStats.OverallMemoryUsage)) * 1024 * 1024),
 			TotalMemory: int64(units.ByteSize(hs.Summary.Hardware.MemorySize)),
 			FreeMemory:  freeMemory,
-			HostSelf:    hs.Self,
+			Self:        hs.Self,
 		})
 	}
+
+	dict, _ := vw.GetPerfDict()
+
+	// var interval = flag.Int("i", 20, "Interval ID")
+	var interval = 20
+	summm, _ := queryInfo(vw.ctx, vw.client.Client, interval, []string{"net.received.average"}, dict["net.received.average"], types.ManagedObjectReference(hostList[0].Self))
+	fmt.Println("summm", summm)
+
 	return hostList, err
 }
 
@@ -349,7 +396,7 @@ func (vw *VmWare) GetHostVm() (hostVm map[string][]VMS, err error) {
 	hostVm = make(map[string][]VMS)
 	for _, host := range hostList {
 		hostIDList = append(hostIDList, host.Host.Value)
-		hostVm[host.Host.Value] = []VMS{}
+		hostVm[host.Self.Value] = []VMS{}
 	}
 	v, err := vw.getBase("VirtualMachine")
 	if err != nil {
@@ -781,7 +828,7 @@ func (vw *VmWare) CloneVM() {
 	for _, host := range hostList {
 		if host.Name == cloneData.Host {
 			hostName = host.Name
-			hostRef = host.HostSelf
+			hostRef = host.Self
 		}
 	}
 	if hostName == "" {
@@ -990,7 +1037,7 @@ func (vw *VmWare) MigrateVM() {
 	for _, host := range hostList {
 		if host.Name == "xxxx" {
 			hostName = host.Name
-			hostRef = host.HostSelf
+			hostRef = host.Self
 		}
 	}
 	if hostName == "" {
@@ -1011,42 +1058,94 @@ func (vw *VmWare) MigrateVM() {
 	fmt.Println("虚拟机迁移完成.....")
 }
 
+func queryInfo(ctx context.Context, c *vim25.Client, interval int, counterName []string, counterId int32, entity types.ManagedObjectReference) (sum int64, err error) {
+	// Create a PerfManager
+	perfManager := performance.NewManager(c)
+	if err != nil {
+		return
+	}
+	// t := time.Now().Add(-600 * time.Second)
+	// t1 := time.Now().Add(60 * time.Second)
+	// Create PerfQuerySpec
+	spec := types.PerfQuerySpec{
+		Entity:     types.ManagedObjectReference{Type: entity.Type, Value: entity.Value},
+		MaxSample:  1,
+		MetricId:   []types.PerfMetricId{{Instance: "*", CounterId: counterId}},
+		IntervalId: int32(interval),
+		// StartTime:  &t,
+		// EndTime:    &t1,
+	}
+	// Query metrics
+	vmsRefss := []types.ManagedObjectReference{{Type: entity.Type, Value: entity.Value}}
+	sample, err := perfManager.SampleByName(ctx, spec, counterName, vmsRefss)
+	if err != nil {
+		return
+	}
+	result, err := perfManager.ToMetricSeries(ctx, sample)
+	if err != nil {
+		return
+	}
+	// Read result
+	for _, metric := range result {
+		for _, v := range metric.Value {
+			sum += v.Value[0]
+		}
+	}
+	return sum, nil
+}
+
 func main() {
 	vc := os.Getenv("GOVMOMI_URL")
 	user := os.Getenv("GOVMOMI_USERNAME")
 	pwd := os.Getenv("GOVMOMI_PASSWORD")
 	vm := NewVmWare(vc, user, pwd)
 	fmt.Println(vm)
+	fmt.Println("-------------------------------- vmList")
 	// vmList, _, _ := vm.GetAllVmClient()
-	vmList, _, _ := vm.GetAllVmClient()
+	vmList, templateList, _ := vm.GetAllVmClient()
 	for _, vm := range vmList {
 		fmt.Println(vm)
 	}
-	fmt.Println("--------------------------------")
+	fmt.Println("-------------------------------- templateList")
+	for _, template := range templateList {
+		fmt.Println(template)
+	}
+	fmt.Println("-------------------------------- hostList")
 	hostList, _ := vm.GetAllHost()
-	for _, vm := range hostList {
-		fmt.Println(vm)
-	}
+	for _, hs := range hostList {
+		fmt.Println(hs)
+		fmt.Println(hs.Name)
 
-	fmt.Println("-------------------------------- datastore ")
-	storeList, _ := vm.GetAllDatastore()
-	for _, store := range storeList {
-		fmt.Println(store)
 	}
+	/*
+		fmt.Println("-------------------------------- datastore ")
+		storeList, _ := vm.GetAllDatastore()
+		for _, store := range storeList {
+			fmt.Println(store)
+		}
 
-	fmt.Println("GetAllDatacenter --------------------------------")
-	dataceterList, _ := vm.GetAllDatacenter()
-	fmt.Println(len(dataceterList))
-	for _, dataceter := range dataceterList {
-		fmt.Println(dataceter)
-	}
+		fmt.Println("GetAllDatacenter --------------------------------")
+		dataceterList, _ := vm.GetAllDatacenter()
+		fmt.Println(len(dataceterList))
+		for _, dataceter := range dataceterList {
+			fmt.Println(dataceter)
+			fmt.Println(dataceter.Name)
+		}
 
-	fmt.Println("GetAllFolder --------------------------------")
-	folderList, _ := vm.GetFolder()
-	fmt.Println(len(folderList))
-	for _, folder := range folderList {
-		fmt.Println(folder)
-		fmt.Println("----")
-	}
+			fmt.Println("GetAllFolder --------------------------------")
+			folderList, _ := vm.GetFolder()
+			fmt.Println(len(folderList))
+			for _, folder := range folderList {
+				fmt.Println(folder)
+				fmt.Println("----")
+			}
+
+			fmt.Println("GetAllNetwork --------------------------------")
+			networkList, _ := vm.GetAllNetwork()
+			fmt.Println(len(networkList))
+			for _, network := range networkList {
+				fmt.Println(network)
+			}
+	*/
 
 }

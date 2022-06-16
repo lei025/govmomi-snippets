@@ -56,7 +56,8 @@ func vlogin(ctx context.Context, vc, user, pwd string) (*vim25.Client, error) {
 	}
 }
 
-var interval = flag.Int("i", 20, "Interval ID")
+// var interval int32 = 60
+var interval = flag.Int("i", 60, "Interval ID")
 
 func main() {
 
@@ -75,7 +76,6 @@ func main() {
 
 	// Get virtual machines references
 	m := view.NewManager(c)
-
 	v, err := m.CreateContainerView(ctx, c.ServiceContent.RootFolder, nil, true)
 	if err != nil {
 		fmt.Println("err ", err)
@@ -83,23 +83,27 @@ func main() {
 
 	defer v.Destroy(ctx)
 
-	vmsRefs, err := v.Find(ctx, []string{"VirtualMachine"}, nil)
+	// vmsRefs, err := v.Find(ctx, []string{"VirtualMachine"}, nil)
+	// fmt.Println("vmsRefs ", vmsRefs, "len ", len(vmsRefs))
 	if err != nil {
 		fmt.Println("err ", err)
 	}
-
+	perf_dict := make(map[string]interface{})
 	// Create a PerfManager
 	perfManager := performance.NewManager(c)
 	counterinfo, _ := perfManager.CounterInfo(ctx)
 	for _, counter := range counterinfo {
 		counter_full := fmt.Sprintf("%s.%s.%s", counter.GroupInfo.GetElementDescription().Key, counter.NameInfo.GetElementDescription().Key, counter.RollupType)
-		// Perf_dict[counter_full] = counter.Key
-		fmt.Println("counter_full[key]: ", counter_full)
-		fmt.Println("counter_full[value]: ", counter.Key)
-		break
+		perf_dict[counter_full] = counter.Key
+		// fmt.Println("counter_full[key]: ", counter_full)
+		// fmt.Println("counter_full[value]: ", counter.Key)
+		// perf_dict["ok"] = "ok"
+		// break
 	}
 	// counter_full[key]:  net.throughput.vds.arpTimeout.summation
 	// counter_full[value]:  632 counterId
+
+	fmt.Println("datastore.read.average ", perf_dict["datastore.read.average"])
 
 	// m := view.NewManager(c)
 
@@ -127,10 +131,25 @@ func main() {
 			"usedPercent",
 
 		// ""
-
 		)
-	}
 
+		// Create PerfQuerySpec
+		tt := time.Now()
+		tt1 := time.Now().Add(60 * time.Second)
+		spec2 := types.PerfQuerySpec{
+		Entity: 
+			IntervalId: 20,
+			MetricId:   []types.PerfMetricId{{Instance: "*"}, {CounterId: 180}},
+			StartTime:  &tt,
+			EndTime:    &tt1,
+		}
+		ww, _ := perfManager.Query(ctx, []types.PerfQuerySpec{spec2})
+		fmt.Println("ww: ", ww)
+		fmt.Println("ww len: ", len(ww))
+	}
+}
+
+/*
 	// Retrieve counters name list
 	counters, err := perfManager.CounterInfoByName(ctx)
 	if err != nil {
@@ -143,8 +162,8 @@ func main() {
 	t := time.Now()
 	t1 := time.Now().Add(60 * time.Second)
 	query := types.PerfQuerySpec{
-		IntervalId: 20,
-		Entity:     types.ManagedObjectReference{Type: "VirtualMachine", Value: "vm-22"},
+		IntervalId: 180,
+		Entity:     types.ManagedObjectReference{Type: "VirtualMachine"},
 		MetricId:   []types.PerfMetricId{{Instance: "*"}, {CounterId: 632}},
 		StartTime:  &t,
 		EndTime:    &t1,
@@ -191,6 +210,12 @@ func main() {
 			if instance == "" {
 				instance = "-"
 			}
+			if len(v.Value) != 0 {
+				fmt.Println("units ", units)
+				fmt.Println("name ", name)
+
+			}
+			// break
 
 			if len(v.Value) != 0 {
 				fmt.Printf("%s\t%s\t%s\t%s\t%s\n",
@@ -204,4 +229,22 @@ func main() {
 	// fmt.Println(counters)
 	// fmt.Println(names[0])
 
-}
+	spec1 := types.PerfQuerySpec{
+		MaxSample:  1,
+		MetricId:   []types.PerfMetricId{{Instance: "*"}},
+		IntervalId: 20,
+	}
+	// names := []string{"datastore.read.average"}
+	var names1 []string
+	for name := range counters {
+		names1 = append(names1, name)
+	}
+	names1 = []string{"datastore.totalReadLatency.average"}
+	fmt.Println("names1: ", names1)
+	vmsRefs1 := vmsRefs[:1]
+
+	sample1, err := perfManager.SampleByName(ctx, spec1, names1, vmsRefs1)
+	res, _ := perfManager.ToMetricSeries(ctx, sample1)
+	fmt.Printf("res: %+#v", res, "len: ", len(res))
+	fmt.Println("res read:", res[0].Value[0].Value[0])
+*/
