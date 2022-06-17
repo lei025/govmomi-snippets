@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<namespaces version="1.0">
+    <namespace>
+        <name>urn:vsan</name>
+        <version>vSAN 6.7U3</version>
+        <priorVersions>
+            <version>6.8.7</version>
+            <version>vSAN 6.7U1</version>
+            <version>VMC M5</version>
+            <version>6.7</version>
+            <version>6.7.0</version>
+            <version>6.6.2</version>
+            <version>6.6.1</version>
+            <version>6.6</version>
+        </priorVersions>
+    </namespace>
+</namespaces>

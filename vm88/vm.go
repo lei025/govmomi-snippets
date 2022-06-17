@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/vmware/govmomi"
@@ -452,7 +455,7 @@ func (vw *VmWare) GetAllCluster() (clusterList []ClusterInfo, err error) {
 			Datastore: cr.Datastore,
 		})
 	}
-	fmt.Println(clusterList)
+	fmt.Printf("clusterList: %v", clusterList, "len:", len(clusterList))
 	return
 }
 
@@ -1094,58 +1097,143 @@ func queryInfo(ctx context.Context, c *vim25.Client, interval int, counterName [
 	return sum, nil
 }
 
+type PriorVersion struct {
+	XMLName     xml.Name `xml:"priorVersions"`
+	Version     string   `xml:"version"`
+	Description string   `xml:",innerxml"`
+}
+type Namespace struct {
+	XMLName       xml.Name       `xml:"namespace"`
+	Name          string         `xml:"name"`
+	Version       string         `xml:"version"`
+	PriorVersions []PriorVersion `xml:"priorVersions"`
+	Description   string         `xml:",innerxml"`
+}
+type Namespaces struct {
+	XMLName     xml.Name  `xml:"namespaces"`
+	Version     string    `xml:"version,attr"`
+	Description string    `xml:",innerxml"`
+	Namespace   Namespace `xml:"namespace"`
+}
+
+// var namespacesResp Namespaces
+
+func (vw *VmWare) GetLatestVmodlVersion(vcenter_ip string) (namespacesResp Namespaces, err error) {
+	c := vw.client
+	c.UseServiceVersion("vsan")
+	url := c.URL()
+	Path := "/sdk"
+	url.Path = path.Join(Path, "vsan"+"ServiceVersions.xml")
+	res, _ := c.Get(url.String())
+	fmt.Printf("res %v\n", xml.NewDecoder(res.Body))
+
+	data, _ := ioutil.ReadAll(res.Body)
+	// fmt.Printf("data %v", string(data))
+	xml.Unmarshal(data, &namespacesResp)
+	fmt.Println("\n %v", namespacesResp)
+
+	return
+}
 func main() {
 	vc := os.Getenv("GOVMOMI_URL")
 	user := os.Getenv("GOVMOMI_USERNAME")
 	pwd := os.Getenv("GOVMOMI_PASSWORD")
-	vm := NewVmWare(vc, user, pwd)
-	fmt.Println(vm)
-	fmt.Println("-------------------------------- vmList")
-	// vmList, _, _ := vm.GetAllVmClient()
-	vmList, templateList, _ := vm.GetAllVmClient()
-	for _, vm := range vmList {
-		fmt.Println(vm)
-	}
-	fmt.Println("-------------------------------- templateList")
-	for _, template := range templateList {
-		fmt.Println(template)
-	}
-	fmt.Println("-------------------------------- hostList")
-	hostList, _ := vm.GetAllHost()
-	for _, hs := range hostList {
-		fmt.Println(hs)
-		fmt.Println(hs.Name)
+	vw := NewVmWare(vc, user, pwd)
+	fmt.Println(vw)
 
+	clusterList, err := vw.GetAllCluster()
+	if err != nil {
+		panic(err)
 	}
+	for _, cluster := range clusterList {
+		fmt.Println(cluster.Name)
+	}
+	vcenter_ip := "172.118.69.31"
+	namespacesResp, _ := vw.GetLatestVmodlVersion(vcenter_ip)
+	fmt.Println()
+	fmt.Println("len: ", len(namespacesResp.Namespace.PriorVersions))
+	fmt.Println(namespacesResp.Namespace.PriorVersions[0])
+	fmt.Println(namespacesResp.Namespace.Name)
+	fmt.Println(namespacesResp.Namespace.Version)
+	fmt.Println(namespacesResp.Namespace.PriorVersions[1].XMLName)
+	fmt.Println("================================================================")
+	for _, ns := range namespacesResp.Namespace.PriorVersions {
+		fmt.Println(ns.Version)
+	}
+
+	// url := fmt.Sprintf("https://%s:%s@%s/sdk/vsanServiceVersions.xml", user, pwd, vc)
+	// url := fmt.Sprintf("https://%s/sdk/vsanServiceVersions.xml", vc)
+	// url := "sdk/vsanServiceVersions.xml"
+
+	// fmt.Println(url)
+	// u, _ := soap.ParseURL(url)
+	// fmt.Println(u)
+	// c.u
+
+	// ctx := context.Background()
+	// c, _ := govmomi.NewClient(ctx, u, true)
+	// fmt.Println(c.URL)
+
+	// UseServiceVersion sets soap.Client.Version to the current version of the service endpoint via /sdk/vsanServiceVersions.xml
+	// c.UseServiceVersion("vsan")
+
+	// cnsClient, _ := cns.NewClient(ctx, c.Client)
+	// fmt.Printf("cs %+v\n", cnsClient)
+	// res, _ := c.Get(u.String())
+
+	// fmt.Printf("res %v\n", xml.NewDecoder(res.Body))
+	// var na Namespaces
+	// data, _ := ioutil.ReadAll(res.Body)
+	// fmt.Printf("data %v", string(data))
+	// xml.Unmarshal(data, &na)
+	// fmt.Println("\n %+v", na)
 	/*
-		fmt.Println("-------------------------------- datastore ")
-		storeList, _ := vm.GetAllDatastore()
-		for _, store := range storeList {
-			fmt.Println(store)
+		fmt.Println("-------------------------------- vmList")
+		// vmList, _, _ := vm.GetAllVmClient()
+		vmList, templateList, _ := vw.GetAllVmClient()
+		for _, vm := range vmList {
+			fmt.Println(vm)
+		}
+		fmt.Println("-------------------------------- templateList")
+		for _, template := range templateList {
+			fmt.Println(template)
+		}
+		fmt.Println("-------------------------------- hostList")
+		hostList, _ := vw.GetAllHost()
+		for _, hs := range hostList {
+			fmt.Println(hs)
+			fmt.Println(hs.Name)
+
 		}
 
-		fmt.Println("GetAllDatacenter --------------------------------")
-		dataceterList, _ := vm.GetAllDatacenter()
-		fmt.Println(len(dataceterList))
-		for _, dataceter := range dataceterList {
-			fmt.Println(dataceter)
-			fmt.Println(dataceter.Name)
-		}
-
-			fmt.Println("GetAllFolder --------------------------------")
-			folderList, _ := vm.GetFolder()
-			fmt.Println(len(folderList))
-			for _, folder := range folderList {
-				fmt.Println(folder)
-				fmt.Println("----")
+			fmt.Println("-------------------------------- datastore ")
+			storeList, _ := vw.GetAllDatastore()
+			for _, store := range storeList {
+				fmt.Println(store)
 			}
 
-			fmt.Println("GetAllNetwork --------------------------------")
-			networkList, _ := vm.GetAllNetwork()
-			fmt.Println(len(networkList))
-			for _, network := range networkList {
-				fmt.Println(network)
+			fmt.Println("GetAllDatacenter --------------------------------")
+			dataceterList, _ := vw.GetAllDatacenter()
+			fmt.Println(len(dataceterList))
+			for _, dataceter := range dataceterList {
+				fmt.Println(dataceter)
+				fmt.Println(dataceter.Name)
 			}
+
+				fmt.Println("GetAllFolder --------------------------------")
+				folderList, _ := vw.GetFolder()
+				fmt.Println(len(folderList))
+				for _, folder := range folderList {
+					fmt.Println(folder)
+					fmt.Println("----")
+				}
+
+				fmt.Println("GetAllNetwork --------------------------------")
+				networkList, _ := vw.GetAllNetwork()
+				fmt.Println(len(networkList))
+				for _, network := range networkList {
+					fmt.Println(network)
+				}
 	*/
 
 }
